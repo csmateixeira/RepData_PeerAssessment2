@@ -68,7 +68,7 @@ code > span.er { font-weight: bold; }
 
 <div id="synopsis" class="section level2">
 <h2>Synopsis</h2>
-<p>Storms and other severe weather events can cause significant impact to both population health and economies. Preventing and mitigating said impacts is of public concern.</p>
+<p>Storms and other severe weather events can cause significant impact to both population health and economies. Preventing and mitigating said impacts is a matter of public concern.</p>
 <p>The following analysis aims to help determine the main causes of population health and economic problems in relation to severe weather events so that priorities can be established.</p>
 <p>The data used for this analysis was taken from the U.S. National Oceanic and Atmospheric Administration’s (NOAA) storm database. The events in the database start in the year 1950 and end in November 2011.</p>
 </div>
@@ -103,7 +103,7 @@ data.raw &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span cl
 <p>Since the purpose of this study is to analise the economic and health impact of the storm events there is no need to include rows that have 0 impact in all damage and human cost related columns.</p>
 <p>The correct type needs to be set for each column:</p>
 <ul>
-<li>EVTYPE: character</li>
+<li>EVTYPE: factor</li>
 <li>PROPDMG: numeric</li>
 <li>PROPDMGEXP: factor</li>
 <li>CROPDMG: numeric</li>
@@ -124,7 +124,7 @@ data.raw &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span cl
         <span class="dt">INJURIES =</span> <span class="kw">as.numeric</span>(INJURIES),
         <span class="dt">FATALITIES =</span> <span class="kw">as.numeric</span>(FATALITIES))            </code></pre>
 <p>The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercased and normalized for consistency. Additionally, typos were corrected.</p>
-<p>Event types were aggregated into common groups (with the same characteristics) whenever it was clear enough to make the analysis as accurate as possible.</p>
+<p>Event types were aggregated into common groups (with the same characteristics) to make the analysis as accurate as possible.</p>
 <pre class="sourceCode r"><code class="sourceCode r">## these are obviously typos
 data.processed$EVTYPE[data.processed$EVTYPE ==<span class="st"> &quot;DRY MIRCOBURST WINDS&quot;</span>] &lt;-<span class="st"> &quot;DRY MICROBURST WINDS&quot;</span>
 data.processed$EVTYPE[data.processed$EVTYPE ==<span class="st"> &quot;WET MICOBURST&quot;</span>] &lt;-<span class="st"> &quot;WET MICROBURST&quot;</span>
@@ -517,7 +517,8 @@ data.processed$EVTYPE[data.processed$EVTYPE ==<span class="st"> &quot;TROPICAL S
 data.processed &lt;-
 <span class="st">    </span>data.processed %&gt;%
 <span class="st">    </span><span class="kw">mutate</span>(<span class="dt">EVTYPE =</span> <span class="kw">as.factor</span>(EVTYPE))</code></pre>
-<p>The amounts related to crop and property damage are accompanied by a corresponding factor of 10 so it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values. After this process is done there is no need to keep the EXP columns so they were also dropped.</p>
+<p>The amounts related to crop and property damage are accompanied by a corresponding factor of 10 so it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values. For consistency, it is assumed here that both the numeric and the character values in columns PROPDMGEXP and CROPDMGEXP are factors of 10. Where the value does not make sense - for example “-”, “?” or “+” - it is assumed that the factor is 0.</p>
+<p>After this process is done there is no need to keep the EXP columns so they were also dropped.</p>
 <pre class="sourceCode r"><code class="sourceCode r">## transform the EXP into a number so we can multiply
 exp &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
     <span class="kw">c</span>(<span class="st">&quot;&quot;</span>, <span class="st">&quot;-&quot;</span>, <span class="st">&quot;?&quot;</span>, <span class="st">&quot;+&quot;</span>, <span class="st">&quot;0&quot;</span>, <span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>, <span class="st">&quot;3&quot;</span>, <span class="st">&quot;4&quot;</span>, <span class="st">&quot;5&quot;</span>, <span class="st">&quot;6&quot;</span>, <span class="st">&quot;7&quot;</span>, <span class="st">&quot;8&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;H&quot;</span>, <span class="st">&quot;K&quot;</span>, <span class="st">&quot;M&quot;</span>),
@@ -620,8 +621,8 @@ data.processed &lt;-<span class="st"> </span>
 </div>
 <div id="results" class="section level2">
 <h2>Results</h2>
-<p>The analysis presented in this document clearly indicates that Tornadoes are by far the leading cause of population health issues. The second leading cause is Thunderstorm Winds but it falls behind Tornadoes by a big margin (about 92 thousand fatalities/injuries).</p>
-<p>When it comes to economic impact the results differ quite a bit with Floods being the leading cause of economic losses. In this case Hurricanes are a closer second with a small margin (around 60 billion USD).</p>
+<p>The analysis presented in this document clearly indicates that <strong>tornadoes</strong> are by far the leading cause of population health issues. The second leading cause is <strong>thunderstorm winds</strong> but it falls behind Tornadoes by a big margin (about <em>92 thousand</em> in human cost).</p>
+<p>When it comes to economic impact the results differ quite a bit with <strong>floods</strong> being the leading cause of economic losses. <strong>Hurricanes</strong> are a far second with a big margin (around <em>60 billion</em> USD).</p>
 </div>
 
 

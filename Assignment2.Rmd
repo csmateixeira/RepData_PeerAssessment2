@@ -11,7 +11,7 @@ output:
 
 ## Synopsis
 
-Storms and other severe weather events can cause significant impact to both population health and economies. Preventing and mitigating said impacts is of public concern.
+Storms and other severe weather events can cause significant impact to both population health and economies. Preventing and mitigating said impacts is a matter of public concern.
 
 The following analysis aims to help determine the main causes of population health and economic problems in relation to severe weather events so that priorities can be established.
 
@@ -45,7 +45,7 @@ Since the purpose of this study is to analise the economic and health impact of 
 
 The correct type needs to be set for each column:
 
-- EVTYPE: character
+- EVTYPE: factor
 - PROPDMG: numeric
 - PROPDMGEXP: factor
 - CROPDMG: numeric
@@ -72,7 +72,7 @@ data.processed <-
 
 The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercased and normalized for consistency. Additionally, typos were corrected.
 
-Event types were aggregated into common groups (with the same characteristics) whenever it was clear enough to make the analysis as accurate as possible.
+Event types were aggregated into common groups (with the same characteristics) to make the analysis as accurate as possible.
 
 ```{r dataprocessing2}
 ## these are obviously typos
@@ -471,6 +471,8 @@ data.processed <-
 ```
 
 The amounts related to crop and property damage are accompanied by a corresponding factor of 10 so it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values.
+For consistency, it is assumed here that both the numeric and the character values in columns PROPDMGEXP and CROPDMGEXP are factors of 10. Where the value does not make sense - for example "-", "?" or "+" - it is assumed that the factor is 0.
+
 After this process is done there is no need to keep the EXP columns so they were also dropped.
 
 ```{r dataprocessing3}
@@ -587,6 +589,6 @@ print(
 
 ## Results
 
-The analysis presented in this document clearly indicates that <strong>tornadoes</strong> are by far the leading cause of population health issues. The second leading cause is <strong>thunderstorm winds</strong> but it falls behind Tornadoes by a big margin (about 92 thousand fatalities/injuries).
+The analysis presented in this document clearly indicates that **tornadoes** are by far the leading cause of population health issues. The second leading cause is **thunderstorm winds** but it falls behind Tornadoes by a big margin (about *92 thousand* in human cost).
 
-When it comes to economic impact the results differ quite a bit with <strong>floods</strong> being the leading cause of economic losses. <strong>Hurricanes</strong> are a far second with a big margin (around 60 billion USD).
+When it comes to economic impact the results differ quite a bit with **floods** being the leading cause of economic losses. **Hurricanes** are a far second with a big margin (around *60 billion* USD).
