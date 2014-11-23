@@ -2,11 +2,12 @@
 title: "Storm Consequences on Health and Economics in the US"
 output:
   html_document:
+    fig_caption: yes
     fig_height: 7
     fig_width: 13
     highlight: espresso
-    keep_md: yes
     theme: flatly
+    toc: yes
 ---
 
 ## Synopsis
@@ -470,7 +471,7 @@ data.processed <-
 
 ```
 
-The amounts related to crop and property damage are accompanied by a corresponding factor of 10 so it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values.
+The amounts related to crop and property damage are accompanied by a corresponding factor of 10. Therefore it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values.
 For consistency, it is assumed here that both the numeric and the character values in columns PROPDMGEXP and CROPDMGEXP are factors of 10. Where the value does not make sense - for example "-", "?" or "+" - it is assumed that the factor is 0.
 
 After this process is done there is no need to keep the EXP columns so they were also dropped.
@@ -530,9 +531,9 @@ data.populationhealth <-
     arrange(desc(HUMANCOST))
 ```
 
-The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of human cost.
+The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of human cost. The cost has been rounded to 2 decimal points so that it can be represented in thousands.
 
-```{r phplot, fig.keep='all', fig.show='asis'}
+```{r phplot, fig.keep='all', fig.show='asis', fig.cap='Fig 1: Top 5 most impactful storm event types on population health'}
 print(
     ggplot(
         head(data.populationhealth, n = 5),
@@ -570,9 +571,9 @@ data.economic <-
     arrange(desc(MATERIALCOST))
 ```
 
-The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of material cost.
+The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of material cost. The cost has been rounded to 2 decimal points so that it can be represented in billions.
 
-```{r eplot, fig.keep='all', fig.show='asis'}
+```{r eplot, fig.keep='all', fig.show='asis', fig.cap='Fig 2: Top 5 most impactful storm event types on the economy'}
 print(
     ggplot(
         head(data.economic, n = 5),
