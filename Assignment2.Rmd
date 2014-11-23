@@ -1,0 +1,592 @@
+---
+title: "Storm Consequences on Health and Economics in the US"
+output:
+  html_document:
+    fig_height: 7
+    fig_width: 13
+    highlight: espresso
+    keep_md: yes
+    theme: flatly
+---
+
+## Synopsis
+
+Storms and other severe weather events can cause significant impact to both population health and economies. Preventing and mitigating said impacts is of public concern.
+
+The following analysis aims to help determine the main causes of population health and economic problems in relation to severe weather events so that priorities can be established.
+
+The data used for this analysis was taken from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. The events in the database start in the year 1950 and end in November 2011. 
+
+## Data Processing
+
+### Libraries needed for the analysis
+
+```{r loadlibs}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+### Loading the data
+
+The data is loaded from here: <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2">Storm Data</a> and is in the 
+BZ2 compressed format.
+
+The file was downloaded using the CURL method.The data was read as a CSV directly into a variable.
+
+```{r dataload, cache=TRUE}
+download.file(url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "StormData.csv.bz2", method = "curl")
+data.raw <- read.csv("StormData.csv.bz2")
+```
+
+### Processing the data
+
+Since the purpose of this study is to analise the economic and health impact of the storm events there is no need to include rows that have 0 impact in all damage and human cost related columns.
+
+The correct type needs to be set for each column:
+
+- EVTYPE: character
+- PROPDMG: numeric
+- PROPDMGEXP: factor
+- CROPDMG: numeric
+- CROPDMGEXP: factor
+- INJURIES: numeric
+- FATALITIES: numeric
+
+All other columns were not needed for this analysis and were dropped.
+
+```{r dataprocessing1}
+data.processed <- 
+    data.raw[!(data.raw$PROPDMG == 0 & data.raw$CROPDMG == 0 & data.raw$INJURIES == 0 & data.raw$FATALITIES == 0), ] %>%
+    select(EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, INJURIES, FATALITIES) %>%    
+    mutate(
+        EVTYPE = toupper(str_trim(EVTYPE)),
+        PROPDMG = as.numeric(PROPDMG),
+        PROPDMGEXP = as.factor(toupper(PROPDMGEXP)),
+        CROPDMG = as.numeric(CROPDMG),
+        CROPDMGEXP = as.factor(toupper(CROPDMGEXP)),
+        INJURIES = as.numeric(INJURIES),
+        FATALITIES = as.numeric(FATALITIES))            
+
+```
+
+The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercased and normalized for consistency. Additionally, typos were corrected.
+
+Event types were aggregated into common groups (with the same characteristics) whenever it was clear enough to make the analysis as accurate as possible.
+
+```{r dataprocessing2}
+## these are obviously typos
+data.processed$EVTYPE[data.processed$EVTYPE == "DRY MIRCOBURST WINDS"] <- "DRY MICROBURST WINDS"
+data.processed$EVTYPE[data.processed$EVTYPE == "WET MICOBURST"] <- "WET MICROBURST"
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNDAO"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "AVALANCE"] <- "AVALANCHE"
+
+## all these variants are LIGHTNING
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTING"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGNTNING"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTING"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTNING."] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTNING INJURY"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTNING FIRE"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTNING  WAUSEON"] <- "LIGHTNING"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHTNING  WAUSEON"] <- "LIGHTNING"
+
+## these variants are all THUNDERSTORM WIND
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERESTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDEERSTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND."] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS."] <- "THUNDERSTORM WIND"
+
+## better to uniformize the word windchill
+data.processed$EVTYPE[data.processed$EVTYPE == "EXTREME WIND CHILL"] <- "EXTREME WINDCHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "EXTREME WIND CHILLs"] <- "EXTREME WINDCHILLs"
+
+## better to uniformize the word waterspout
+data.processed$EVTYPE[data.processed$EVTYPE == "WATER SPOUT"] <- "WATERSPOUT"
+data.processed$EVTYPE[data.processed$EVTYPE == "WATERSPOUT-"] <- "WATERSPOUT"
+
+## all these variants are FLASH FLOOD
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/FLASH FLOOD"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/FLASH"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD/"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD FLASH"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD/FLOOD"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/FLASHFLOOD"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/FLASH/FLOOD"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOODING"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOODING/FLOOD"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOODS"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD FROM ICE JAMS"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD - HEAVY RAIN"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD WINDS"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD/ STREET"] <- "FLASH FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD/LANDSLIDE"] <- "FLASH FLOOD"
+
+## all these variants are FLOOD
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD & HEAVY RAIN"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN AND SMALL STREAM FLOODIN"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN/SML STREAM FLD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "MAJOR FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/RAIN/WINDS"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "BREAKUP FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/RAIN/WINDS"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOODS"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY RAIN AND FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY RAINS/FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE JAM FLOOD (MINOR"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE JAM FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "MAJOR FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "MINOR FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "RURAL FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "SMALL STREAM FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOWMELT FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN AND SMALL"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN FLOOD"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN FLOODING"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN FLOODS"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN SMALL"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN/SMALL STREAM"] <- "FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "URBAN/SMALL STREAM FLOOD"] <- "FLOOD"
+
+## all these variants are RIVER FLOOD
+data.processed$EVTYPE[data.processed$EVTYPE == "RIVER FLOOD"] <- "RIVER FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "RIVER FLOODING"] <- "RIVER FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLOOD/RIVER FLOOD"] <- "RIVER FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "RIVER AND STREAM FLOOD"] <- "RIVER FLOOD"
+
+## all these variants are LAKE FLOOD
+data.processed$EVTYPE[data.processed$EVTYPE == "LAKESHORE FLOOD"] <- "LAKE FLOOD"
+
+## all these variants are COASTAL FLOOD
+data.processed$EVTYPE[data.processed$EVTYPE == "COASTAL FLOODING"] <- "COASTAL FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "COASTAL FLOODING/EROSION"] <- "COASTAL FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "COASTAL  FLOODING/EROSION"] <- "COASTAL FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "EROSION/CSTL FLOOD"] <- "COASTAL FLOOD"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SURF COASTAL FLOODING"] <- "COASTAL FLOOD"
+
+## all these variants are FROST/FREEZE
+data.processed$EVTYPE[data.processed$EVTYPE == "FROST\\FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FROST"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "EARLY FROST"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "DAMAGING FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "AGRICULTURAL FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HARD FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FREEZING RAIN"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FREEZING RAIN/SNOW"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HARD FREEZE"] <- "FROST/FREEZE"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHT FREEZING RAIN"] <- "FROST/FREEZE"
+
+## all these variants are SLEET
+data.processed$EVTYPE[data.processed$EVTYPE == "FREEZING RAIN/SLEET"] <- "SLEET"
+
+## all these variants are FUNNEL CLOUD
+data.processed$EVTYPE[data.processed$EVTYPE == "FUNNEL CLOUD."] <- "FUNNEL CLOUD"
+
+## all these variants are WIND
+data.processed$EVTYPE[data.processed$EVTYPE == "GUSTY WINDS"] <- "WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "WIND AND WAVE"] <- "WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "WIND DAMAGE"] <- "WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "WIND STORM"] <- "WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "WIND/HAIL"] <- "WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINDS"] <- "WIND"
+
+## all these variants are HAIL with size
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 1.75)"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL(0.75)"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "SMALL HAIL"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 0.75"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 075"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 100"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 125"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 150"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 175"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 200"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 275"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 450"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL 75"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL DAMAGE"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL/WIND"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAIL/WINDS"] <- "HAIL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HAILSTORM"] <- "HAIL"
+
+## all these variants are BLIZZARD
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND/ BLIZZARD"] <- "BLIZZARD"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WINDS/"] <- "BLIZZARD"
+data.processed$EVTYPE[data.processed$EVTYPE == "GROUND BLIZZARD"] <- "BLIZZARD"
+
+## all these variants are COASTAL STORM
+data.processed$EVTYPE[data.processed$EVTYPE == "COASTALSTORM"] <- "COASTAL STORM"
+
+## all these variants are COLD/WIND CHILL
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "LOW TEMPERATURE"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "EXTENDED COLD"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD AND SNOW"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD TEMPERATURE"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD WAVE"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD WEATHER"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD WINDS"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "UNSEASONABLY COLD"] <- "COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "UNSEASONABLE COLD"] <- "COLD/WIND CHILL"
+
+## all these variants are EXTREME COLD/WIND CHILL
+data.processed$EVTYPE[data.processed$EVTYPE == "EXTREME COLD"] <- "EXTREME COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "EXTREME WINDCHILL"] <- "EXTREME COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HYPOTHERMIA"] <- "EXTREME COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HYPOTHERMIA/EXPOSURE"] <- "EXTREME COLD/WIND CHILL"
+data.processed$EVTYPE[data.processed$EVTYPE == "RECORD COLD"] <- "EXTREME COLD/WIND CHILL"
+
+## all these variants are HEAT
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAT WAVE"] <- "HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAT WAVE DROUGHT"] <- "HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAT WAVES"] <- "HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "UNSEASONABLY WARM"] <- "HEAT"
+
+## all these variants are EXTREME HEAT
+data.processed$EVTYPE[data.processed$EVTYPE == "HYPERTHERMIA/EXPOSURE"] <- "EXTREME HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "RECORD HEAT"] <- "EXTREME HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "RECORD/EXCESSIVE HEAT"] <- "EXTREME HEAT"
+data.processed$EVTYPE[data.processed$EVTYPE == "EXCESSIVE HEAT"] <- "EXTREME HEAT"
+
+## all these variants are DROUGHT
+data.processed$EVTYPE[data.processed$EVTYPE == "DROUGHT/EXCESSIVE HEAT"] <- "DROUGHT"
+
+## all these variants are HEAVY RAIN
+data.processed$EVTYPE[data.processed$EVTYPE == "HVY RAIN"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY RAINS"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY RAIN/SEVERE WEATHER"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY PRECIPITATION"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "RAINSTORM"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "RECORD RAINFALL"] <- "HEAVY RAIN"
+data.processed$EVTYPE[data.processed$EVTYPE == "UNSEASONAL RAIN"] <- "HEAVY RAIN"
+
+## all these variants are HEAVY SNOW
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW AND HIGH WINDS"] <- "HEAVY SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW SHOWER"] <- "HEAVY SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW/ICE"] <- "HEAVY SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "RECORD SNOW"] <- "HEAVY SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW AND HEAVY SNOW"] <- "HEAVY SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW/HEAVY SNOW"] <- "HEAVY SNOW"
+
+## all these variants are SNOW
+data.processed$EVTYPE[data.processed$EVTYPE == "LATE SEASON SNOW"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHT SNOW"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "LIGHT SNOWFALL"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW ACCUMULATION"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW AND ICE STORM"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW AND ICE"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW/ ICE"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW/BLOWING SNOW"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW/ICE"] <- "SNOW"
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW/ICE STORM"] <- "SNOW"
+
+
+## all these variants are LAKE-EFFECT SNOW
+data.processed$EVTYPE[data.processed$EVTYPE == "LAKE EFFECT SNOW"] <- "LAKE-EFFECT SNOW"
+
+## all these variants are HEAVY SURF
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SURF AND WIND"] <- "HEAVY SURF"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SURF/HIGH SURF"] <- "HEAVY SURF"
+data.processed$EVTYPE[data.processed$EVTYPE == "ROUGH SURF"] <- "HEAVY SURF"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH SURF"] <- "HEAVY SURF"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH SURF ADVISORY"] <- "HEAVY SURF"
+
+## all these variants are HEAVY SWELL
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH SWELLS"] <- "HEAVY SWELL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SWELLS"] <- "HEAVY SWELL"
+
+## all these variants are RIP CURRENT
+data.processed$EVTYPE[data.processed$EVTYPE == "RIP CURRENTS"] <- "RIP CURRENT"
+data.processed$EVTYPE[data.processed$EVTYPE == "RIP CURRENTS/HEAVY SURF"] <- "RIP CURRENT"
+
+## all these variants are ICE
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE ON ROAD"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE ROADS"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICY ROADS"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE FLOES"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE JAM"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE STORM"] <- "ICE"
+data.processed$EVTYPE[data.processed$EVTYPE == "ICE/STRONG WINDS"] <- "ICE"
+
+## all these variants are SNOW SQUALL
+data.processed$EVTYPE[data.processed$EVTYPE == "SNOW SQUALLS"] <- "SNOW SQUALL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW SQUALLS"] <- "SNOW SQUALL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW/SQUALLS"] <- "SNOW SQUALL"
+data.processed$EVTYPE[data.processed$EVTYPE == "HEAVY SNOW-SQUALLS"] <- "SNOW SQUALL"
+
+## all these variants are STRONG WIND
+data.processed$EVTYPE[data.processed$EVTYPE == "STRONG WINDS"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND (G40)"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND 48"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND AND SEAS"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND DAMAGE"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WIND/SEAS"] <- "STRONG WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "HIGH WINDS"] <- "STRONG WIND"
+
+## all these variants are STORM SURGE
+data.processed$EVTYPE[data.processed$EVTYPE == "STORM SURGE/TIDE"] <- "STORM SURGE"
+
+## all these variants are LANDSLIDE
+data.processed$EVTYPE[data.processed$EVTYPE == "LANDSLIDES"] <- "LANDSLIDE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FLASH FLOOD LANDSLIDES"] <- "LANDSLIDE"
+
+## all these variants are MUDSLIDE
+data.processed$EVTYPE[data.processed$EVTYPE == "MUDSLIDES"] <- "MUDSLIDE"
+data.processed$EVTYPE[data.processed$EVTYPE == "MUD SLIDE"] <- "MUDSLIDE"
+data.processed$EVTYPE[data.processed$EVTYPE == "MUD SLIDES"] <- "MUDSLIDE"
+
+## all these variants are WILD FIRE
+data.processed$EVTYPE[data.processed$EVTYPE == "WILD FIRES"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "WILD/FOREST FIRE"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "WILDFIRE"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "WILD FIRES"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "FOREST FIRES"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "GRASS FIRES"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "WILD/FOREST FIRES"] <- "WILD FIRE"
+data.processed$EVTYPE[data.processed$EVTYPE == "WILDFIRES"] <- "WILD FIRE"
+
+## all these variants are WINTER STORM
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTER STORM HIGH WINDS"] <- "WINTER STORM"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTER STORMS"] <- "WINTER STORM"
+
+## all these variants are WINTER WEATHER
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTER WEATHER MIX"] <- "WINTER WEATHER"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTER WEATHER/MIX"] <- "WINTER WEATHER"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTRY MIX"] <- "WINTER WHEATHER"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTERY MIX"] <- "WINTER WEATHER"
+data.processed$EVTYPE[data.processed$EVTYPE == "WINTER WHEATHER"] <- "WINTER WEATHER"
+
+## all these variants are MARINE THUNDERSTORM WIND
+data.processed$EVTYPE[data.processed$EVTYPE == "MARINE THUNDERSTORM WIND"] <- "MARINE THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "MARINE TSTM WIND"] <- "MARINE THUNDERSTORM WIND"
+
+## all these variants are THUNDERSTORM WIND
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM  WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND (G40)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND G52"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS 13"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS/HAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDSS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORMS WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORMW"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND (G35)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND (G40)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND (G45)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND/HAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND  (G45)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND (41)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND 40"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND 45"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND 55"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND 65)"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND DAMAGE"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND G45"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WIND G58"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TSTMW"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "TUNDERSTORM WIND"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "SEVERE THUNDERSTORM"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "SEVERE THUNDERSTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "SEVERE THUNDERSTORMS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUDERSTORM WINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM DAMAGE TO"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM HAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND 60 MPH"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND 65 MPH"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND 65MPH"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND 98 MPH"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND G50"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND G55"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND G60"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND TREES"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND/ TREE"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND/ TREES"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND/AWNING"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND/HAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WIND/LIGHTNING"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS 63 MPH"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS AND"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS G60"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS HAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS LIGHTNING"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS/ FLOOD"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS/FLOODING"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS/FUNNEL CLOU"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDS53"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORM WINDSHAIL"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORMS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORMS WIND"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTORMWINDS"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNDERSTROM WIND"] <- "THUNDERSTORM WIND"
+data.processed$EVTYPE[data.processed$EVTYPE == "THUNERSTORM WINDS"] <- "THUNDERSTORM WIND"
+
+## all these variants are DUST DEVIL
+data.processed$EVTYPE[data.processed$EVTYPE == "DUST DEVIL WATERSPOUT"] <- "DUST DEVIL"
+
+## all these variants are DUST STORM
+data.processed$EVTYPE[data.processed$EVTYPE == "DUST STORM/HIGH WINDS"] <- "DUST STORM"
+
+## lumping all Hurricanes into 1 category HURRICANES
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE-GENERATED SWELLS"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE EDOUARD"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE EMILY"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE ERIN"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE FELIX"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE OPAL"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE OPAL/HIGH WINDS"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE/TYPHOON"] <- "HURRICANE"
+data.processed$EVTYPE[data.processed$EVTYPE == "HURRICANE GORDON"] <- "HURRICANE"
+
+## lumping all Tornadoes into 1 category TORNADO
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNADO F2"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNADO F3"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNADO F0"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNADO F1"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "TORNADOES"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "WATERSPOUT TORNADO"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "WATERSPOUT/TORNADO"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "WATERSPOUT-TORNADOO"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "WATERSPOUT/ TORNADO"] <- "TORNADO"
+data.processed$EVTYPE[data.processed$EVTYPE == "COLD AIR TORNADO"] <- "TORNADO"
+
+## lumping all Tropical Storms into 1 category TROPICAL STORM
+data.processed$EVTYPE[data.processed$EVTYPE == "TROPICAL STORM GORDON"] <- "TROPICAL STORM"
+data.processed$EVTYPE[data.processed$EVTYPE == "TROPICAL STORM ALBERTO"] <- "TROPICAL STORM"
+data.processed$EVTYPE[data.processed$EVTYPE == "TROPICAL STORM DEAN"] <- "TROPICAL STORM"
+data.processed$EVTYPE[data.processed$EVTYPE == "TROPICAL STORM JERRY"] <- "TROPICAL STORM"
+
+## set EVTYPE as factor
+data.processed <-
+    data.processed %>%
+    mutate(EVTYPE = as.factor(EVTYPE))
+
+```
+
+The amounts related to crop and property damage are accompanied by a corresponding factor of 10 so it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values.
+After this process is done there is no need to keep the EXP columns so they were also dropped.
+
+```{r dataprocessing3}
+
+## transform the EXP into a number so we can multiply
+exp <- data.frame(
+    c("", "-", "?", "+", "0", "1", "2", "3", "4", "5", "6", "7", "8", "B", "H", "K", "M"),
+    c(0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 2, 3, 6))
+
+names(exp) <- c("EXP", "NUMEXP")
+
+## merge the dataset above with the main dataset
+data.processed <- 
+    data.processed %>%
+    merge(exp, by.x = "PROPDMGEXP", by.y = "EXP") %>%
+    mutate(PROPDMGEXP = NUMEXP) %>%
+    select(-NUMEXP) %>%
+    merge(exp, by.x = "CROPDMGEXP", by.y = "EXP") %>%
+    mutate(CROPDMGEXP = NUMEXP) %>%
+    select(-NUMEXP) %>%
+    mutate(PROPDMG = PROPDMG * 10^PROPDMGEXP, CROPDMG = CROPDMG * 10^CROPDMGEXP, PROPDMGEXP = NULL, CROPDMGEXP = NULL)
+
+```
+
+A quick summary of the processed data is below.
+
+```{r datasummary}
+str(data.processed)
+summary(data.processed)
+```
+
+
+## Analysis of population health
+
+To address the impact of storms on population health a subset of the processed data will be used which contains only the information related to the number of fatalities and injuries caused by storm events.
+
+Additionally, all rows which have 0 cost on both FATALITIES and INJURIES were dropped as they are irrelevant for this part of the analysis.
+
+```{r phdataprocessing}
+data.populationhealth <- 
+    data.processed[!(data.processed$FATALITIES == 0 & data.processed$INJURIES == 0), ] %>%
+    select(EVTYPE, INJURIES, FATALITIES)
+```
+
+Fatalities are generally considered to have a much higher cost in terms of population health than injuries. For this reason a weighted sum of all injuries and fatalities for each storm event type is used instead of a simple sum.
+
+For the purpose of this study it is assumed that FATALITIES have twice the cost of INJURIES. A new column - HUMANCOST - will be created to hold the value of the sum for each event type.
+
+```{r phdataprocessing2}
+data.populationhealth <- 
+    data.populationhealth %>%
+    mutate(HUMANCOST = INJURIES + 2*FATALITIES, INJURIES = NULL, FATALITIES = NULL) %>%
+    group_by(EVTYPE) %>%
+    summarise(HUMANCOST = sum(HUMANCOST)) %>%
+    arrange(desc(HUMANCOST))
+```
+
+The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of human cost.
+
+```{r phplot, fig.keep='all', fig.show='asis'}
+print(
+    ggplot(
+        head(data.populationhealth, n = 5),
+        aes(reorder(EVTYPE, -HUMANCOST), HUMANCOST/10^3)
+    ) +
+    geom_bar(stat = "identity") + 
+    xlab("Storm Event Type") + 
+    ylab("Human Cost (Thousands)") + 
+    ggtitle("Impact of Storm Events on Population Health (USA)") +
+    geom_text(aes(label = format(round(HUMANCOST/10^3, 2), nsmall = 2)),  vjust=1.5, colour = "white")
+)
+
+```
+
+## Analysis of Economic Impact
+
+To address the impact of storms on the economy a subset of the processed data will be used which contains only the information related to the costs of property and crop damaged caused by storm events.
+Additionally, all rows which have 0 cost on both PROPDMG and CROPDMG were dropped as they are irrelevant for this part of the analysis.
+
+```{r edataprocessing}
+data.economic <- 
+    data.processed[!(data.processed$PROPDMG == 0 & data.processed$CROPDMG == 0), ] %>%
+    select(EVTYPE, PROPDMG, CROPDMG)
+
+```
+
+Since we are analysing the overall cost impact of the storm events in the economy, crop damage and property damage need to be added to generate the total cost. A new column - MATERIALCOST - will be created to hold the value of the sum for each event type.
+
+```{r edataprocessing2}
+data.economic <- 
+    data.economic %>%
+    mutate(MATERIALCOST = PROPDMG + CROPDMG, PROPDMG = NULL, CROPDMG = NULL) %>%
+    group_by(EVTYPE) %>%
+    summarise(MATERIALCOST = sum(MATERIALCOST)) %>%
+    arrange(desc(MATERIALCOST))
+```
+
+The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of material cost.
+
+```{r eplot, fig.keep='all', fig.show='asis'}
+print(
+    ggplot(
+        head(data.economic, n = 5),
+        aes(reorder(EVTYPE, -MATERIALCOST), MATERIALCOST/10^9)
+    ) +
+    geom_bar(stat = "identity") + 
+    xlab("Storm Event Type") + 
+    ylab("Material Cost (Billions of $)") + 
+    ggtitle("Impact of Storm Events on the Economy (USA)") +
+    geom_text(aes(label = format(round(MATERIALCOST/10^9, 2), nsmall=2)),  vjust=1.5, colour = "white")
+)
+
+```
+
+## Results
+
+The analysis presented in this document clearly indicates that <strong>tornadoes</strong> are by far the leading cause of population health issues. The second leading cause is <strong>thunderstorm winds</strong> but it falls behind Tornadoes by a big margin (about 92 thousand fatalities/injuries).
+
+When it comes to economic impact the results differ quite a bit with <strong>floods</strong> being the leading cause of economic losses. <strong>Hurricanes</strong> are a far second with a big margin (around 60 billion USD).
