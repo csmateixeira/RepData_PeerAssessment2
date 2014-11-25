@@ -1,15 +1,4 @@
----
-title: "Storm Consequences on Health and Economics in the US"
-output:
-  html_document:
-    fig_caption: yes
-    fig_height: 7
-    fig_width: 13
-    highlight: espresso
-    keep_md: yes
-    theme: flatly
-    toc: yes
----
+# Storm Consequences on Health and Economics in the US
 
 ## Synopsis
 
@@ -23,8 +12,29 @@ The data used for this analysis was taken from the U.S. National Oceanic and Atm
 
 ### Libraries needed for the analysis
 
-```{r loadlibs}
+
+```r
 library(dplyr)
+```
+
+```
+## Warning: package 'dplyr' was built under R version 3.1.2
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+## 
+## The following object is masked from 'package:stats':
+## 
+##     filter
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 library(ggplot2)
 library(stringr)
 ```
@@ -36,7 +46,8 @@ BZ2 compressed format.
 
 The file was downloaded using the CURL method.The data was read as a CSV directly into a variable.
 
-```{r dataload, cache=TRUE}
+
+```r
 download.file(url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "StormData.csv.bz2", method = "curl")
 data.raw <- read.csv("StormData.csv.bz2")
 ```
@@ -57,7 +68,8 @@ The correct type needs to be set for each column:
 
 All other columns were not needed for this analysis and were dropped.
 
-```{r dataprocessing1}
+
+```r
 data.processed <- 
     data.raw[!(data.raw$PROPDMG == 0 & data.raw$CROPDMG == 0 & data.raw$INJURIES == 0 & data.raw$FATALITIES == 0), ] %>%
     select(EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, INJURIES, FATALITIES) %>%    
@@ -69,14 +81,14 @@ data.processed <-
         CROPDMGEXP = as.factor(toupper(CROPDMGEXP)),
         INJURIES = as.numeric(INJURIES),
         FATALITIES = as.numeric(FATALITIES))            
-
 ```
 
 The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercase and normalized for consistency. Additionally, typos were corrected.
 
 Event types were aggregated into common groups (with the same characteristics) to make the analysis as accurate as possible.
 
-```{r dataprocessing2}
+
+```r
 ## these are obviously typos
 data.processed$EVTYPE[data.processed$EVTYPE == "DRY MIRCOBURST WINDS"] <- "DRY MICROBURST WINDS"
 data.processed$EVTYPE[data.processed$EVTYPE == "WET MICOBURST"] <- "WET MICROBURST"
@@ -469,7 +481,6 @@ data.processed$EVTYPE[data.processed$EVTYPE == "TROPICAL STORM JERRY"] <- "TROPI
 data.processed <-
     data.processed %>%
     mutate(EVTYPE = as.factor(EVTYPE))
-
 ```
 
 The amounts related to crop and property damage are accompanied by a corresponding factor of 10. Therefore it makes sense to multiply them by 10 to the factor so we are able to summarise and compare the actual total values.
@@ -477,8 +488,8 @@ For consistency, it is assumed here that both the numeric and the character valu
 
 After this process is done there is no need to keep the EXP columns so they were also dropped.
 
-```{r dataprocessing3}
 
+```r
 ## transform the EXP into a number so we can multiply
 exp <- data.frame(
     c("", "-", "?", "+", "0", "1", "2", "3", "4", "5", "6", "7", "8", "B", "H", "K", "M"),
@@ -496,14 +507,45 @@ data.processed <-
     mutate(CROPDMGEXP = NUMEXP) %>%
     select(-NUMEXP) %>%
     mutate(PROPDMG = PROPDMG * 10^PROPDMGEXP, CROPDMG = CROPDMG * 10^CROPDMGEXP, PROPDMGEXP = NULL, CROPDMGEXP = NULL)
-
 ```
 
 A quick summary of the processed data is below.
 
-```{r datasummary}
+
+```r
 str(data.processed)
+```
+
+```
+## 'data.frame':	254633 obs. of  5 variables:
+##  $ EVTYPE    : Factor w/ 169 levels "?","APACHE COUNTY",..: 149 102 149 151 151 151 151 127 151 151 ...
+##  $ PROPDMG   : num  1000 0 15 30 30 250 250000 0 0 450000 ...
+##  $ CROPDMG   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ INJURIES  : num  0 0 0 0 0 0 10 0 5 0 ...
+##  $ FATALITIES: num  0 1 0 0 0 0 0 1 2 0 ...
+```
+
+```r
 summary(data.processed)
+```
+
+```
+##                EVTYPE          PROPDMG             CROPDMG         
+##  THUNDERSTORM WIND:119673   Min.   :0.000e+00   Min.   :0.000e+00  
+##  TORNADO          : 39969   1st Qu.:2.000e+03   1st Qu.:0.000e+00  
+##  HAIL             : 26162   Median :1.000e+04   Median :0.000e+00  
+##  FLASH FLOOD      : 21601   Mean   :1.682e+06   Mean   :1.928e+05  
+##  LIGHTNING        : 13299   3rd Qu.:3.500e+04   3rd Qu.:0.000e+00  
+##  FLOOD            : 11205   Max.   :1.150e+11   Max.   :5.000e+09  
+##  (Other)          : 22724                                          
+##     INJURIES           FATALITIES      
+##  Min.   :   0.0000   Min.   :  0.0000  
+##  1st Qu.:   0.0000   1st Qu.:  0.0000  
+##  Median :   0.0000   Median :  0.0000  
+##  Mean   :   0.5519   Mean   :  0.0595  
+##  3rd Qu.:   0.0000   3rd Qu.:  0.0000  
+##  Max.   :1700.0000   Max.   :583.0000  
+## 
 ```
 
 
@@ -513,7 +555,8 @@ To address the impact of storms on population health a subset of the processed d
 
 Additionally, all rows which have 0 cost on both FATALITIES and INJURIES were dropped as they are irrelevant for this part of the analysis.
 
-```{r phdataprocessing}
+
+```r
 data.populationhealth <- 
     data.processed[!(data.processed$FATALITIES == 0 & data.processed$INJURIES == 0), ] %>%
     select(EVTYPE, INJURIES, FATALITIES)
@@ -523,7 +566,8 @@ Fatalities are generally considered to have a much higher cost in terms of popul
 
 For the purpose of this study it is assumed that FATALITIES have twice the cost of INJURIES. A new column - HUMANCOST - will be created to hold the value of the sum for each event type.
 
-```{r phdataprocessing2}
+
+```r
 data.populationhealth <- 
     data.populationhealth %>%
     mutate(HUMANCOST = INJURIES + 2*FATALITIES, INJURIES = NULL, FATALITIES = NULL) %>%
@@ -534,7 +578,8 @@ data.populationhealth <-
 
 The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of human cost. The cost has been rounded to 2 decimal points so that it can be represented in thousands.
 
-```{r phplot, fig.keep='all', fig.show='asis', fig.cap='Fig 1: Top 5 most impactful storm event types on population health'}
+
+```r
 print(
     ggplot(
         head(data.populationhealth, n = 5),
@@ -546,24 +591,26 @@ print(
     ggtitle("Impact of Storm Events on Population Health (USA)") +
     geom_text(aes(label = format(round(HUMANCOST/10^3, 2), nsmall = 2)),  vjust=1.5, colour = "white")
 )
-
 ```
+
+![Fig 1: Top 5 most impactful storm event types on population health](./Assignment2_files/figure-html/phplot-1.png) 
 
 ## Analysis of Economic Impact
 
 To address the impact of storms on the economy a subset of the processed data will be used which contains only the information related to the costs of property and crop damaged caused by storm events.
 Additionally, all rows which have 0 cost on both PROPDMG and CROPDMG were dropped as they are irrelevant for this part of the analysis.
 
-```{r edataprocessing}
+
+```r
 data.economic <- 
     data.processed[!(data.processed$PROPDMG == 0 & data.processed$CROPDMG == 0), ] %>%
     select(EVTYPE, PROPDMG, CROPDMG)
-
 ```
 
 Since we are analysing the overall cost impact of the storm events in the economy, crop damage and property damage need to be added to generate the total cost. A new column - MATERIALCOST - will be created to hold the value of the sum for each event type.
 
-```{r edataprocessing2}
+
+```r
 data.economic <- 
     data.economic %>%
     mutate(MATERIALCOST = PROPDMG + CROPDMG, PROPDMG = NULL, CROPDMG = NULL) %>%
@@ -574,7 +621,8 @@ data.economic <-
 
 The following bar plot shows the distribution of the cost per event type for the top 5 results in terms of material cost. The cost has been rounded to 2 decimal points so that it can be represented in billions.
 
-```{r eplot, fig.keep='all', fig.show='asis', fig.cap='Fig 2: Top 5 most impactful storm event types on the economy'}
+
+```r
 print(
     ggplot(
         head(data.economic, n = 5),
@@ -586,8 +634,9 @@ print(
     ggtitle("Impact of Storm Events on the Economy (USA)") +
     geom_text(aes(label = format(round(MATERIALCOST/10^9, 2), nsmall=2)),  vjust=1.5, colour = "white")
 )
-
 ```
+
+![Fig 2: Top 5 most impactful storm event types on the economy](./Assignment2_files/figure-html/eplot-1.png) 
 
 ## Results
 

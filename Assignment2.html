@@ -106,7 +106,7 @@ code > span.er { font-weight: bold; }
 </div>
 <div id="loading-the-data" class="section level3">
 <h3>Loading the data</h3>
-<p>The data is loaded from here: <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2">Storm Data</a> and is in the BZ2 compressed format.</p>
+<p>The data is loaded from here: <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2" title="Storm Data">Storm Data</a> and is in the BZ2 compressed format.</p>
 <p>The file was downloaded using the CURL method.The data was read as a CSV directly into a variable.</p>
 <pre class="sourceCode r"><code class="sourceCode r"><span class="kw">download.file</span>(<span class="dt">url =</span> <span class="st">&quot;https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2&quot;</span>, <span class="dt">destfile =</span> <span class="st">&quot;StormData.csv.bz2&quot;</span>, <span class="dt">method =</span> <span class="st">&quot;curl&quot;</span>)
 data.raw &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span class="st">&quot;StormData.csv.bz2&quot;</span>)</code></pre>
@@ -136,7 +136,7 @@ data.raw &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span cl
         <span class="dt">CROPDMGEXP =</span> <span class="kw">as.factor</span>(<span class="kw">toupper</span>(CROPDMGEXP)),
         <span class="dt">INJURIES =</span> <span class="kw">as.numeric</span>(INJURIES),
         <span class="dt">FATALITIES =</span> <span class="kw">as.numeric</span>(FATALITIES))            </code></pre>
-<p>The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercased and normalized for consistency. Additionally, typos were corrected.</p>
+<p>The event types are not consistent - some events are the same even though they have different names. The event types were therefore trimmed, uppercase and normalized for consistency. Additionally, typos were corrected.</p>
 <p>Event types were aggregated into common groups (with the same characteristics) to make the analysis as accurate as possible.</p>
 <pre class="sourceCode r"><code class="sourceCode r">## these are obviously typos
 data.processed$EVTYPE[data.processed$EVTYPE ==<span class="st"> &quot;DRY MIRCOBURST WINDS&quot;</span>] &lt;-<span class="st"> &quot;DRY MICROBURST WINDS&quot;</span>
